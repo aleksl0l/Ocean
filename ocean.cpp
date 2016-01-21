@@ -13,7 +13,9 @@ Ocean::Ocean(QWidget *parent) :
     connect(ui->clearButton, SIGNAL(clicked()), ocean, SLOT(clear()));
 
     connect(ui->SizeFieldBox, SIGNAL(valueChanged(int)), ocean, SLOT(ChangeFieldSize(int)));
-
+    connect(ocean,SIGNAL(fieldNotChanged(bool)),ui->SizeFieldBox,SLOT(setDisabled(bool)));
+    connect(ocean,SIGNAL(Stat(QString, QString)),this, SLOT(SetStat(QString, QString)));
+    connect(ui->UpTimeBox, SIGNAL(valueChanged(int)), ocean, SLOT(SetInterval(int)));
     ui->main_layout->setStretchFactor(ui->OceanScene, 8);
     ui->main_layout->setStretchFactor(ui->ConfigLaout, 2);
     ui->OceanScene->addWidget(ocean);
@@ -22,4 +24,11 @@ Ocean::Ocean(QWidget *parent) :
 Ocean::~Ocean()
 {
     delete ui;
+}
+
+void Ocean::SetStat(QString pr, QString vic)
+{
+    //qDebug() << "Stat";
+    ui->countPredators->setText(pr);
+    ui->countVictims->setText(vic);
 }

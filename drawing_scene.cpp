@@ -1,10 +1,8 @@
 #include "drawing_scene.h"
+#include <QVectorIterator>
 
-struct Point
-{
-    int x,y;
-    Point(int _x=0, int _y=0):x(_x), y(_y){}
-};
+#include <algorithm>
+
 
 
 Drawing_Scene::Drawing_Scene(QWidget *parent) : QWidget(parent)
@@ -13,26 +11,23 @@ Drawing_Scene::Drawing_Scene(QWidget *parent) : QWidget(parent)
     qsrand((uint)time.msec());
     timer = new QTimer;
 
-    SizeField = 50;
-    //predators=new Predators[100];
-    //victims = new Victims[15000];
+    SizeField = 100;
 
-
-
-    area = new unsigned char * [SizeField];
+    area = new AREA * [SizeField];
     for (int i = 0; i < SizeField; i++)
-        area[i] = new unsigned char [SizeField];
+        area[i] = new AREA [SizeField];
 
-    for(int i=0; i<SizeField; i++)
-        for(int j=0; j<SizeField; j++)
-            area[i][j] = 0;
+//    for(int i=0; i<SizeField; i++)
+//        for(int j=0; j<SizeField; j++)
+//            area[i][j].who = 0;
 
     connect(timer, SIGNAL(timeout()), this, SLOT(update()));
 }
 
 void Drawing_Scene::startGame()
 {
-    timer->start(30);
+    emit fieldNotChanged(true);
+    timer->start(45);
 }
 
 void Drawing_Scene::stopGame()
@@ -43,6 +38,11 @@ void Drawing_Scene::stopGame()
 void Drawing_Scene::clear()
 {
 
+}
+
+void Drawing_Scene::SetInterval(int msec)
+{
+    timer->setInterval(msec);
 }
 
 void Drawing_Scene::paintEvent(QPaintEvent *) //
@@ -70,84 +70,88 @@ void Drawing_Scene::InitField(QPainter &p)
 {
     qDebug() << "INIT";
 
-    for(int i=0; i<2; i++)
+    for(int i=0; i<10; i++)
     {
         int posX = qrand()%SizeField;
         int posY = qrand()%SizeField;
-        if(area[posX][posY])
+        if(area[posX][posY].who)
         {
             i--;
             continue;
         }
         predators.push_back(Predators(posX,posY));
-        area[posX][posY] = true;
+        area[posX][posY].who = 1;
     }
 
-    for(int i=0; i<2; i++)
+    for(int i=0; i<1000; i++)
     {
         int posX = qrand()%SizeField;
         int posY = qrand()%SizeField;
-        if(area[posX][posY])
+        if(area[posX][posY].who)
         {
             i--;
             continue;
         }
         victims.push_back(Victims(posX, posY));
-        area[posX][posY] = true;
+        area[posX][posY].who = 2;
+        //area[posX][posY].= victims.begin()+i;
     }
-
-//    for(int Pr=0; Pr<predators.size(); Pr++)
-//    {
-//        double cellWidth = (double)width()/SizeField;
-//        double cellHeight = (double)height()/SizeField;
-
-//        p.setBrush(Qt::blue);
-//        p.drawEllipse((predators[Pr].GetX())*cellWidth ,(predators[Pr].GetY())*cellHeight, (qreal)cellWidth,(qreal)cellHeight);
-//    }
 }
 
 void Drawing_Scene::Generation(QPainter &p) //только изменение координат
 {
     for(int i=0; i<predators.size(); i++)
     {
-        if(predators[i].GetCountTime()==5)
+        if(predators[i].GetCountTime()==40) //если хищник голодный
         {
+            area[predators[i].GetX()][predators[i].GetY()].who=0;
             predators.erase(predators.begin()+ i);
             i--;
             continue;
         }
+        else if(predators[i].GetCountAte()==10) //очень сытый
+        {
+            //размножся
+            Point cord = RandomCellAr1(Point(predators[i].GetX(), predators[i].GetY()), 0);
 
-        //заполнить вектор свободных клетов вокруг
-        //из количества свободных клеток выбрать рандомное число
-        //перейти в клетку под рандомным числом
-        //пометить предыдущую клетку как свободную
-        //в перейдённую клетку пометить как занятую)))
-
-        QVector<Point> cord;
-        for(int k=-1; k<2; k++)
-            for(int l=-1; l<2; l++)
+            if(cord.x != -1)
             {
-                if(k!=0 && l!=0)
-                    if(predators[i].GetX()+k < SizeField  && predators[i].GetY()+l < SizeField
-                            && predators[i].GetX()+k>=0 && predators[i].GetY()+l>=0)
-                    {
-                        if(area[predators[i].GetX()+k][predators[i].GetY()+l]==0)
-                        {
-                            cord.push_back(Point(predators[i].GetX()+k, predators[i].GetY()+l));
-                        }
-                    }
+                predators[i].GetCountAte()=0;
+                predators.push_back(Predators(cord.x, cord.y));
+                area[cord.x][cord.y].who=1;
             }
+        }
+        //ищем жертву
+        Point cord = RandomCellAr1(Point(predators[i].GetX(), predators[i].GetY()), 2);
+        bool isVic=true;
+        if(cord.x==-1)  //если ничего не нашли - передвинутся в пустую(дописать)
+        {
+            cord=RandomCellAr1(Point(predators[i].GetX(), predators[i].GetY()), 0);
+            isVic=false;
+        }
 
-        if(cord.size()==0) continue;
+       // qDebug() << cord.x << cord.y;
 
-        int rand = qrand()%cord.size();
+        area[predators[i].GetX()][predators[i].GetY()].who=0;//там где были не занято
+        area[cord.x][cord.y].who=1;//куда идём - хищник
 
+        if(isVic)
+        {
+            int vic;
+            for(vic=0; vic<victims.size(); vic++)
+            {
+                if(victims[vic] == Victims(cord.x, cord.y))
+                    break;
+            }
+            victims.erase(victims.begin() + vic);//удаляем жертву
+            predators[i].GetCountAte()++; //поели
+            predators[i].GetCountTime()-=5;
+        }
+        else
+            predators[i].GetCountTime()++;
+        predators[i].SetX(cord.x); //переместились
+        predators[i].SetY(cord.y);
 
-        area[predators[i].GetX()][predators[i].GetY()]=0;
-        area[cord[rand].x][cord[rand].y]=1;
-        predators[i].SetX(cord[rand].x);
-        predators[i].SetY(cord[rand].y);
-        predators[i].GetCountTime()++;
     }
 
 
@@ -161,71 +165,41 @@ void Drawing_Scene::Generation(QPainter &p) //только изменение к
     }
 
 
-    //ЖЕРТВЫ
+    //ЖЕРТВЫ//////////////////////////////////////////////////////
 
     for(int i=0; i<victims.size(); i++)
     {
 
 
-        if(victims[i].GetCountTime()==5)
-        {
-            //размножся
-            QVector<Point> cord;
-
-            for(int k=-1; k<2; k++)
-                for(int l=-1; l<2; l++)
+                if(victims[i].GetCountTime()==10)
                 {
-                    if(k!=0 && l!=0)
-                        if(victims[i].GetX()+k < SizeField  && victims[i].GetY()+l < SizeField
-                                && victims[i].GetX()+k>=0 && victims[i].GetY()+l>=0)
-                        {
-                            if(!area[victims[i].GetX()+k][victims[i].GetY()+l])
-                            {
-                                cord.push_back(Point(victims[i].GetX()+k, victims[i].GetY()+l));
-                            }
-                        }
+                    //размножся
+                    Point cord = RandomCellAr1(Point(victims[i].GetX(), victims[i].GetY()), 0);
+
+                    if(cord.x != -1)
+                    {
+                        victims[i].GetCountTime()=0;
+                        victims.push_back(Victims(cord.x, cord.y));
+                        area[cord.x][cord.y].who=2;
+                    }
                 }
 
-            if(cord.size()!=0)
-            {
-                int rand = qrand()%cord.size();
-                //victims[i].GetCountTime()=0;
-                victims.push_back(Victims(cord[rand].x, cord[rand].y));
-            }
-        }
-        //заполнить вектор свободных клетов вокруг
-        //из количества свободных клеток выбрать рандомное число
-        //перейти в клетку под рандомным числом
-        //пометить предыдущую клетку как свободную
-        //в перейдённую клетку пометить как занятую)))
+        Point cord=RandomCellAr1(Point(victims[i].GetX(), victims[i].GetY()), 0);
+
+        if(cord.x==-1) continue;
 
 
-        QVector<Point> cord;
+        area[victims[i].GetX()][victims[i].GetY()].who=0;
+        area[cord.x][cord.y].who=2;
 
-        for(int k=-1; k<2; k++)
-            for(int l=-1; l<2; l++)
-            {
-                if(k!=0 && l!=0)
-                    if(victims[i].GetX()+k < SizeField  && victims[i].GetY()+l < SizeField
-                            && victims[i].GetX()+k>=0 && victims[i].GetY()+l>=0)
-                    {
-                        if(!area[victims[i].GetX()+k][victims[i].GetY()+l])
-                        {
-                            cord.push_back(Point(victims[i].GetX()+k, victims[i].GetY()+l));
-                        }
-                    }
-            }
+        //area[cord.x][cord.y].iter=victims.begin()+i;
 
-        if(cord.size()==0) continue;
+        victims[i].SetX(cord.x);
+        victims[i].SetY(cord.y);
 
-        int rand = qrand()%cord.size();
-
-        area[victims[i].GetX()][victims[i].GetY()]=0;
-        area[cord[rand].x][cord[rand].y]=2;
-        victims[i].SetX(cord[rand].x);
-        victims[i].SetY(cord[rand].y);
         victims[i].GetCountTime()++;
     }
+
     for(int Pr=0; Pr<victims.size(); Pr++)
     {
         double cellWidth = (double)width()/SizeField;
@@ -234,8 +208,30 @@ void Drawing_Scene::Generation(QPainter &p) //только изменение к
         p.setBrush(Qt::blue);
         p.drawEllipse((victims[Pr].GetX())*cellWidth ,(victims[Pr].GetY())*cellHeight, (qreal)cellWidth,(qreal)cellHeight);
     }
+    emit Stat(QString::number(predators.size()), QString::number(victims.size()));
 }
 
+Point Drawing_Scene::RandomCellAr1(Point p, int who)
+{
+    QVector<Point> cord;
+
+    for(int k=-1; k<2; k++)
+        for(int l=-1; l<2; l++)
+        {
+            //if(k!=0 && l!=0)
+                if(p.x+k < SizeField  && p.y+l < SizeField
+                        && p.x+k>=0 && p.y+l>=0)
+                {
+                    if(area[p.x+k][p.y+l].who==who)
+                    {
+                        cord.push_back(Point(p.x+k, p.y+l));
+                    }
+                }
+        }
+    if(cord.size()==0) return Point(-1, -1);
+    int rand = qrand()%cord.size();
+    return cord[rand];
+}
 
 void Drawing_Scene::DrawGrid(QPainter &p)
 {

@@ -15,7 +15,8 @@ class Ocean : public QMainWindow
 public:
     explicit Ocean(QWidget *parent = 0);
     ~Ocean();
-
+public slots:
+    void SetStat(QString, QString);
 private:
     Ui::Ocean *ui;
     Drawing_Scene *ocean;

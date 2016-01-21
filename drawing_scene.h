@@ -12,6 +12,17 @@
 #include "victims.h"
 #include "fish.h"
 
+struct Point
+{
+    int x, y;
+    Point(int _x=0, int _y=0):x(_x), y(_y){}
+};
+
+struct AREA{
+    unsigned char who;
+    AREA():who(0){}
+};
+
 class Drawing_Scene : public QWidget
 {
     Q_OBJECT
@@ -21,12 +32,16 @@ public:
 
 protected:
     void paintEvent(QPaintEvent *);
-
+signals:
+    void fieldNotChanged(bool ok);
+    void Stat(QString, QString);
 private slots:
     void DrawGrid(QPainter &p);
     void DrawScene(QPainter &p);
     void Generation(QPainter &p);
     void InitField(QPainter &p);
+    Point RandomCellAr1(Point p, int who);
+    void SetInterval(int msec);
 public slots:
     void ChangeFieldSize(const int &size);
     void startGame();
@@ -42,7 +57,7 @@ private:
     //Predators *predators;
     QVector<Victims> victims;
     //Victims *victims;
-    unsigned char **area; //0 - не занято, 1 - занято хищником, 2 - занято жертвой
+    AREA **area; //0 - не занято, 1 - занято хищником, 2 - занято жертвой
 };
 
 #endif // DRAWING_SCENE_H
